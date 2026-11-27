@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 enum SortOption: String, CaseIterable, Identifiable {
@@ -149,15 +148,15 @@ struct BrowseView: View {
         }
 
         switch sortOption {
-case .dateDesc:
-    result.sort { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
-case .dateAsc:
-    result.sort { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
-case .nameAsc:
-    result.sort { $0.title.localizedCompare($1.title) == .orderedAscending }
-case .nameDesc:
-    result.sort { $0.title.localizedCompare($1.title) == .orderedDescending }
-}
+        case .dateDesc:
+            result.sort { ($0.date ?? .distantPast) > ($1.date ?? .distantPast) }
+        case .dateAsc:
+            result.sort { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
+        case .nameAsc:
+            result.sort { $0.title.localizedCompare($1.title) == .orderedAscending }
+        case .nameDesc:
+            result.sort { $0.title.localizedCompare($1.title) == .orderedDescending }
+        }
         return result
     }
 }

@@ -12,17 +12,17 @@ struct VideoPlayerView: UIViewRepresentable {
 
         // YouTube / embeddable → WKWebView
         if backup.isYouTube {
-    let config = WKWebViewConfiguration()
-    config.allowsInlineMediaPlayback = true
-    config.mediaTypesRequiringUserActionForPlayback = []
+            let config = WKWebViewConfiguration()
+            config.allowsInlineMediaPlayback = true
+            config.mediaTypesRequiringUserActionForPlayback = []
 
-    let web = WKWebView(frame: .zero, configuration: config)
-    web.isOpaque = false
-    web.backgroundColor = .black
-    web.scrollView.isScrollEnabled = false
-    web.load(URLRequest(url: url))
-    return web
-}
+            let web = WKWebView(frame: .zero, configuration: config)
+            web.isOpaque = false
+            web.backgroundColor = .black
+            web.scrollView.isScrollEnabled = false
+            web.load(URLRequest(url: url))
+            return web
+        }
 
         // Direct media → AVPlayer
         if backup.isDirectMedia {
@@ -35,7 +35,7 @@ struct VideoPlayerView: UIViewRepresentable {
             return vc.view
         }
 
-        // Fallback — load in WKWebView (e.g. third-party embed pages)
+        // Fallback — load in WKWebView
         let web = WKWebView()
         web.isOpaque = false
         web.backgroundColor = .black
