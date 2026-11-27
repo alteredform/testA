@@ -165,13 +165,13 @@ struct ItemDetailView: View {
             chip
                 .background(Color(hex: "#b91c1c").opacity(0.3))
                 .foregroundColor(Color(hex: "#f0f0f0"))
-        } else if let url = b.playbackURL, b.isYouTube || b.isDirectMedia {
-            Button { selectedBackup = b } label: {
-                chip
-                    .background(Color(hex: "#21262d"))
-                    .foregroundColor(Color(hex: "#c9d1d9"))
-            }
-        } else if let url = URL(string: b.url) {
+} else if b.playbackURL != nil, b.isYouTube || b.isDirectMedia {
+    Button { selectedBackup = b } label: {
+        chip
+            .background(Color(hex: "#21262d"))
+            .foregroundColor(Color(hex: "#c9d1d9"))
+    }
+} else if let url = URL(string: b.url) {
             Link(destination: url) {
                 chip
                     .background(Color(hex: "#21262d"))

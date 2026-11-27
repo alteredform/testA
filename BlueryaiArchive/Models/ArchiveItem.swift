@@ -1,6 +1,6 @@
 import Foundation
 
-struct ArchiveItem: Identifiable, Codable, Hashable {
+struct ArchiveItem: Identifiable, Decodable, Hashable {
     let id: String
     let title: String
     let type: ItemType
@@ -15,7 +15,10 @@ struct ArchiveItem: Identifiable, Codable, Hashable {
     let isMissing: Bool
     let isNew: Bool
 
-    // MARK: - Display helpers
+    /// Backs the "Services" filter in BrowseView and FiltersView.
+    var services: [String] {
+        Array(Set(backups.map(\.name))).sorted()
+    }
 
     var primaryThumbnailURL: URL? {
         if let yt = youtubeId {
@@ -35,13 +38,10 @@ struct ArchiveItem: Identifiable, Codable, Hashable {
     var availableBackups: [Backup] { backups.filter { !$0.unavailable } }
 
     var defaultBackup: Backup? {
-        // Prefer direct media, then YouTube, then anything usable.
         availableBackups.first(where: { $0.isDirectMedia })
             ?? availableBackups.first(where: { $0.isYouTube })
             ?? availableBackups.first
     }
-
-    // MARK: - Decoding
 
     enum CodingKeys: String, CodingKey {
         case id, title, type, category, kind, date, youtubeId, thumbnails,
@@ -51,17 +51,16 @@ struct ArchiveItem: Identifiable, Codable, Hashable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
 
-        title      = (try? c.decode(String.self, forKey: .title)) ?? "Untitled"
-        dateString =  try? c.decode(String.self, forKey: .date)
-        youtubeId  =  try? c.decode(String.self, forKey: .youtubeId)
-        thumbnails = (try? c.decode([String].self, forKey: .thumbnails)) ?? []
-        description = try? c.decode(String.self, forKey: .description)
-        chat       = (try? c.decode([String: String].self, forKey: .chat)) ?? [:]
-        tags       = (try? c.decode([String].self, forKey: .tags)) ?? []
-        isMissing  = (try? c.decode(Bool.self, forKey: .isMissing)) ?? false
-        isNew      = (try? c.decode(Bool.self, forKey: .isNew)) ?? false
+        title       = (try? c.decode(String.self, forKey: .title)) ?? "Untitled"
+        dateString  =  try? c.decode(String.self, forKey: .date)
+        youtubeId   =  try? c.decode(String.self, forKey: .youtubeId)
+        thumbnails  = (try? c.decode([String].self, forKey: .thumbnails)) ?? []
+        description =  try? c.decode(String.self, forKey: .description)
+        chat        = (try? c.decode([String: String].self, forKey: .chat)) ?? [:]
+        tags        = (try? c.decode([String].self, forKey: .tags)) ?? []
+        isMissing   = (try? c.decode(Bool.self, forKey: .isMissing)) ?? false
+        isNew       = (try? c.decode(Bool.self, forKey: .isNew)) ?? false
 
-        // "backups" is the canonical name; "sources" is a fallback.
         if let b = try? c.decode([Backup].self, forKey: .backups) {
             backups = b
         } else if let s = try? c.decode([Backup].self, forKey: .sources) {
@@ -76,7 +75,6 @@ struct ArchiveItem: Identifiable, Codable, Hashable {
             ?? "vods"
         type = ItemType(loose: rawType) ?? .vods
 
-        // Date — accept ISO8601, yyyy-MM-dd, MM.dd.yyyy
         if let s = dateString {
             let iso = ISO8601DateFormatter()
             let ymd = DateFormatter(); ymd.dateFormat = "yyyy-MM-dd"
@@ -86,11 +84,8 @@ struct ArchiveItem: Identifiable, Codable, Hashable {
             date = nil
         }
 
-        // Stable ID — mirrors share.mjs genId
         let provided = try? c.decode(String.self, forKey: .id)
-        id = provided
-            ?? youtubeId
-            ?? ArchiveItem.genId(title: title, date: dateString)
+        id = provided ?? youtubeId ?? ArchiveItem.genId(title: title, date: dateString)
     }
 
     static func genId(title: String, date: String?) -> String {

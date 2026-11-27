@@ -6,23 +6,21 @@ struct VideoPlayerView: UIViewRepresentable {
     let backup: Backup
 
     func makeUIView(context: Context) -> UIView {
-        guard let url = backup.playbackURL else {
-            return makePlaceholder("Invalid source URL")
-        }
+        guard let url = backup.playbackURL else { return placeholder("Invalid source URL") }
 
-        // YouTube / embeddable → WKWebView
         if backup.isYouTube {
-            let web = WKWebView()
+            let config = WKWebViewConfiguration()
+            config.allowsInlineMediaPlayback = true
+            config.mediaTypesRequiringUserActionForPlayback = []
+
+            let web = WKWebView(frame: .zero, configuration: config)
             web.isOpaque = false
             web.backgroundColor = .black
             web.scrollView.isScrollEnabled = false
-            web.allowsInlineMediaPlayback = true
-            web.mediaTypeRequiresUserAction = false
             web.load(URLRequest(url: url))
             return web
         }
 
-        // Direct media → AVPlayer
         if backup.isDirectMedia {
             let player = AVPlayer(url: url)
             let vc = AVPlayerViewController()
@@ -33,7 +31,6 @@ struct VideoPlayerView: UIViewRepresentable {
             return vc.view
         }
 
-        // Fallback — load in WKWebView (e.g. third-party embed pages)
         let web = WKWebView()
         web.isOpaque = false
         web.backgroundColor = .black
@@ -43,7 +40,7 @@ struct VideoPlayerView: UIViewRepresentable {
 
     func updateUIView(_ uiView: UIView, context: Context) {}
 
-    private func makePlaceholder(_ message: String) -> UIView {
+    private func placeholder(_ message: String) -> UIView {
         let v = UILabel()
         v.text = message
         v.textColor = .secondaryLabel
