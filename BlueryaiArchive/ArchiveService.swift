@@ -6,7 +6,7 @@ struct ArchiveService {
     func loadItems() async throws -> [ArchiveItem] {
         let rawURL = URL(string: resolver.absoluteString + "?raw")!
         if let rawData = try? await request(rawURL),
-           let items = try? JSONDecoder().decode([ArchiveItem].self, from: rawData) {
+           let items = try? decodeItems(rawData) {
             return items
         }
 
@@ -15,14 +15,23 @@ struct ArchiveService {
         guard let contentURL = metadata.url else {
             throw ArchiveError.invalidResponse
         }
-
         let contentData = try await request(contentURL)
-        return try JSONDecoder().decode([ArchiveItem].self, from: contentData)
+        return try decodeItems(contentData)
+    }
+
+    private func decodeItems(_ data: Data) throws -> [ArchiveItem] {
+        let decoded = try JSONDecoder().decode([ArchiveItem].self, from: data)
+        let totalCount = decoded.count
+        return decoded.enumerated().map { index, original in
+            var item = original
+            item.assignAPIIndex(index, totalCount: totalCount)
+            return item
+        }
     }
 
     private func request(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 45
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
