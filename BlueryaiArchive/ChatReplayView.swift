@@ -132,6 +132,7 @@ private struct ChatReplayPanel: View {
     @StateObject private var store: ChatReplayStore
     @Binding private var playbackTime: Double
     @State private var isExpanded = false
+    @State private var followsPlayback = true
     let sourceName: String
 
     init(source: ArchiveChat.Source, playbackTime: Binding<Double>) {
@@ -159,6 +160,15 @@ private struct ChatReplayPanel: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
+                    if store.hasLoaded {
+                        Button { followsPlayback.toggle() } label: {
+                            Image(systemName: followsPlayback ? "arrow.down.to.line" : "pause.fill")
+                                .foregroundStyle(Color.siteBlue)
+                                .padding(5)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(followsPlayback ? "Pause chat follow" : "Follow playback")
+                    }
                     if store.isLoading { ProgressView() }
                     else { Image(systemName: isExpanded ? "chevron.up" : "chevron.down").foregroundStyle(.secondary) }
                 }
@@ -184,15 +194,21 @@ private struct ChatReplayPanel: View {
                         Text("No messages at this playback point.")
                             .font(.caption).foregroundStyle(.secondary).padding(.vertical, 12)
                     } else {
-                        ScrollView {
-                            LazyVStack(alignment: .leading, spacing: 7) {
-                                ForEach(visibleMessages) { message in
-                                    ChatLine(message: message)
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                LazyVStack(alignment: .leading, spacing: 7) {
+                                    ForEach(visibleMessages) { message in
+                                        ChatLine(message: message)
+                                    }
                                 }
+                                .padding(.vertical, 3)
                             }
-                            .padding(.vertical, 3)
+                            .onChange(of: visibleMessages.last?.id) { messageID in
+                                guard followsPlayback, let messageID else { return }
+                                withAnimation(.linear(duration: 0.12)) { proxy.scrollTo(messageID, anchor: .bottom) }
+                            }
+                            .frame(height: 300)
                         }
-                        .frame(height: 300)
                     }
                 } else {
                     Button("Load chat replay") { Task { await store.load() } }
@@ -213,6 +229,18 @@ private struct ChatLine: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 7) {
+            Group {
+                if let avatarURL = message.avatarURL {
+                    AsyncImage(url: avatarURL) { phase in
+                        if let image = phase.image { image.resizable().scaledToFill() }
+                        else { avatarFallback }
+                    }
+                } else {
+                    avatarFallback
+                }
+            }
+            .frame(width: 22, height: 22)
+            .clipShape(Circle())
             Text(timestamp(message.videoSeconds))
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.secondary)
@@ -228,6 +256,13 @@ private struct ChatLine: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private var avatarFallback: some View {
+        Image(systemName: "person.crop.circle.fill")
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(Color.siteMuted)
     }
 
     private func timestamp(_ value: Double) -> String {

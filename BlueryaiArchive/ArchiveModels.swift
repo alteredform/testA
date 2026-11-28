@@ -269,7 +269,7 @@ struct ArchiveLink: Identifiable, Hashable {
     var playbackURL: URL {
         if let youtubeId, let url = URL(string: "https://www.youtube-nocookie.com/embed/\(youtubeId)?playsinline=1&rel=0&autoplay=0") { return url }
         if let twitchPlayerURL { return twitchPlayerURL }
-        if isDirectMedia, let directURL = downloadableURL { return directURL }
+        if (isDirectMedia || isAudioMedia), let directURL = downloadableURL { return directURL }
         if url.host?.lowercased() == "archive.org" {
             let parts = url.pathComponents.filter { $0 != "/" }
             if parts.count > 1, ["details", "download", "embed"].contains(parts[0]) {
@@ -302,11 +302,15 @@ struct ArchiveLink: Identifiable, Hashable {
         return Int64(value * multiplier)
     }
 
+    var isAudioMedia: Bool {
+        ["mp3", "m4a", "aac", "wav", "flac", "ogg"].contains(url.pathExtension.lowercased())
+    }
+
     var isDirectMedia: Bool {
         let host = url.host?.lowercased() ?? ""
         let ext = url.pathExtension.lowercased()
         if host.contains("googlevideo.com") && url.path.contains("videoplayback") { return true }
-        return ["mp4", "m4v", "mov", "m3u8", "mp3", "m4a", "aac", "wav"].contains(ext)
+        return ["mp4", "m4v", "mov", "m3u8"].contains(ext)
     }
 
     var downloadableURL: URL? {
@@ -323,7 +327,7 @@ struct ArchiveLink: Identifiable, Hashable {
         if host == "archive.org", url.path.hasPrefix("/download/"), !url.pathExtension.isEmpty { return url }
         if isDirectMedia { return url }
         let ext = url.pathExtension.lowercased()
-        if ["zip", "7z", "rar", "pdf", "csv", "json", "txt", "jpg", "jpeg", "png", "webp"].contains(ext) { return url }
+        if ["zip", "7z", "rar", "pdf", "csv", "json", "txt", "jpg", "jpeg", "png", "webp", "mp3", "m4a", "aac", "wav", "flac", "ogg"].contains(ext) { return url }
         return nil
     }
 }

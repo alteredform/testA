@@ -2,10 +2,10 @@ import SwiftUI
 
 struct NativeArchiveItemDetailView: View {
     @EnvironmentObject private var downloads: DownloadManager
+    @EnvironmentObject private var playback: ArchivePlaybackManager
     let item: ArchiveItem
 
     @State private var selectedSourceID: String?
-    @State private var playbackTime: Double = 0
 
     private var sources: [ArchiveLink] { item.availableSources }
     private var selectedSource: ArchiveLink? {
@@ -17,7 +17,7 @@ struct NativeArchiveItemDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 if let source = selectedSource {
-                    ArchivePlayerView(source: source, playbackTime: $playbackTime)
+                    ArchivePlayerView(source: source, playbackTime: $playback.playbackTime)
                         .padding(.top, 8)
                     playerSourceSelector
                 } else {
@@ -26,7 +26,7 @@ struct NativeArchiveItemDetailView: View {
 
                 itemInformation
                 if !chatSources.isEmpty {
-                    ChatReplayView(sources: chatSources, playbackTime: $playbackTime)
+                    ChatReplayView(sources: chatSources, playbackTime: $playback.playbackTime)
                 }
                 if let altPOV = item.altPOV {
                     alternatePerspectives(altPOV)
@@ -42,6 +42,12 @@ struct NativeArchiveItemDetailView: View {
         .background(Color.archiveBackground)
         .navigationTitle(item.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            if let source = selectedSource { playback.prepare(source) }
+        }
+        .onChange(of: selectedSourceID) { _ in
+            if let source = selectedSource { playback.prepare(source) }
+        }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 ShareLink(item: item.shortURL) {
@@ -57,14 +63,13 @@ struct NativeArchiveItemDetailView: View {
             HStack {
                 Text("PLAYING IN APP").font(.system(size: 9, weight: .bold)).tracking(1.2).foregroundStyle(Color.archiveBlue)
                 Spacer()
-                Text(playbackClock(playbackTime)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                Text(playbackClock(playback.playbackTime)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
             }
             ScrollView(.horizontal) {
                 HStack(spacing: 7) {
                     ForEach(sources) { source in
                         Button {
                             selectedSourceID = source.id
-                            playbackTime = 0
                         } label: {
                             Text(source.name)
                                 .font(.caption2.weight(.medium))
@@ -122,6 +127,13 @@ struct NativeArchiveItemDetailView: View {
                     .foregroundStyle(Color.archiveText.opacity(0.88))
                     .lineSpacing(3)
                     .textSelection(.enabled)
+                    .environment(\.openURL, OpenURLAction { url in
+                        if url.scheme == "archive-seek", let seconds = Double(url.host ?? "") {
+                            playback.seek(to: seconds)
+                            return .handled
+                        }
+                        return .systemAction
+                    })
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let segments = item.segment, !segments.isEmpty {
@@ -160,7 +172,6 @@ struct NativeArchiveItemDetailView: View {
                     SourceActionRow(source: source, isSelected: source.id == selectedSource?.id)
                         .onTapGesture {
                             selectedSourceID = source.id
-                            playbackTime = 0
                         }
                 }
             }
@@ -204,7 +215,25 @@ struct NativeArchiveItemDetailView: View {
     }
 
     private func attributedDescription(_ source: String) -> AttributedString {
-        (try? AttributedString(markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(source)
+        var attributed = (try? AttributedString(markdown: source, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(source)
+        let expression = try? NSRegularExpression(pattern: "(?<![0-9])(?:[0-9]{1,2}:)?[0-9]{1,2}:[0-9]{2}(?![0-9])")
+        let sourceString = source as NSString
+        let matches = expression?.matches(in: source, range: NSRange(location: 0, length: sourceString.length)) ?? []
+        for match in matches {
+            let stamp = sourceString.substring(with: match.range)
+            guard let seconds = seconds(for: stamp),
+                  let range = attributed.range(of: stamp),
+                  let url = URL(string: "archive-seek://\(Int(seconds))") else { continue }
+            attributed[range].link = url
+        }
+        return attributed
+    }
+
+    private func seconds(for stamp: String) -> Double? {
+        let parts = stamp.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 || parts.count == 3 else { return nil }
+        if parts.count == 3 { return Double(parts[0] * 3600 + parts[1] * 60 + parts[2]) }
+        return Double(parts[0] * 60 + parts[1])
     }
 
     private func playbackClock(_ seconds: Double) -> String {
